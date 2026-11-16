@@ -320,3 +320,33 @@ def test_shared_markup_style_between_consoles(color_systems: tuple[str, ...]) ->
         console = Console(file=output, color_system=color_system, force_terminal=True)
         console.print("[#ff8800]orange[/]", end="")
         assert output.getvalue() == expected[color_system]
+
+
+def test_update_link_invalidates_cached_definition() -> None:
+    plain_style = Style(bold=True)
+    assert str(plain_style.update_link("https://example.com")) == (
+        "bold link https://example.com"
+    )
+    str(plain_style)  # Populate the source style's definition cache.
+    assert str(plain_style.update_link("https://example.com")) == (
+        "bold link https://example.com"
+    )
+
+    linked_style = Style(link="https://example.com")
+    str(linked_style)
+    assert str(linked_style.update_link(None)) == "none"
+
+
+def test_style_addition_is_independent_of_lru_cache_order() -> None:
+    empty_style = Style()
+    logically_empty_but_non_null = Style(link="https://example.com").update_link(None)
+    assert logically_empty_but_non_null == empty_style
+    assert bool(logically_empty_but_non_null)
+
+    Style._add.cache_clear()
+    assert not (empty_style + Style())
+    assert bool(empty_style + logically_empty_but_non_null)
+
+    Style._add.cache_clear()
+    assert bool(empty_style + logically_empty_but_non_null)
+    assert not (empty_style + Style())

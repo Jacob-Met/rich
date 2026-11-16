@@ -682,7 +682,7 @@ class Style:
         """
         style: Style = self.__new__(Style)
         style._ansi = self._ansi
-        style._style_definition = self._style_definition
+        style._style_definition = None
         style._color = self._color
         style._bgcolor = self._bgcolor
         style._attributes = self._attributes
@@ -733,11 +733,7 @@ class Style:
         sys.stdout.write(f"{self.render(text)}\n")
 
     @lru_cache(maxsize=1024)
-    def _add(self, style: "Style | None") -> "Style":
-        if style is None or style._null:
-            return self
-        if self._null:
-            return style
+    def _add(self, style: "Style") -> "Style":
         new_style: Style = self.__new__(Style)
         new_style._ansi = None
         new_style._style_definition = None
@@ -758,6 +754,10 @@ class Style:
         return new_style
 
     def __add__(self, style: "Style | None") -> "Style":
+        if style is None or style._null:
+            return self
+        if self._null:
+            return style
         combined_style = self._add(style)
         return combined_style.copy() if combined_style.link else combined_style
 
