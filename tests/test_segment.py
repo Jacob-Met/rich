@@ -393,3 +393,35 @@ def test_align_bottom():
         [Segment("   ", Style())],
         [Segment("X")],
     ]
+
+
+@pytest.mark.parametrize(
+    "cut,expected",
+    [
+        (0, ("", "שָׁלוֹם")),
+        (1, ("שָׁ", "לוֹם")),
+        (2, ("שָׁל", "וֹם")),
+        (3, ("שָׁלוֹ", "ם")),
+        (4, ("שָׁלוֹם", "")),
+    ],
+)
+def test_split_cells_keeps_hebrew_diacritics_with_base(
+    cut: int, expected: tuple[str, str]
+) -> None:
+    segment = Segment("שָׁלוֹם", Style(color="red"))
+    left, right = segment.split_cells(cut)
+    assert (left.text, right.text) == expected
+    assert left.style == right.style == segment.style
+    assert cell_len(left.text) == cut
+    assert cell_len(right.text) == segment.cell_length - cut
+
+
+@pytest.mark.parametrize(
+    "text", ["a\u0301bc", "👩🏽‍🚀X", "早a\u0301z", "❤️x", "Z\u200bq"]
+)
+def test_split_cells_keeps_grapheme_cell_invariants(text: str) -> None:
+    segment = Segment(text)
+    for cut in range(segment.cell_length + 1):
+        left, right = segment.split_cells(cut)
+        assert cell_len(left.text) == cut
+        assert cell_len(right.text) == segment.cell_length - cut
