@@ -149,7 +149,7 @@ class Style:
         link: str | None = None,
         meta: dict[str, Any] | None = None,
     ):
-        self._ansi: str | None = None
+        self._ansi: tuple[ColorSystem, str] | None = None
         self._style_definition: str | None = None
 
         def _make_color(color: Color | str) -> Color:
@@ -351,7 +351,8 @@ class Style:
             str: String containing codes.
         """
 
-        if self._ansi is None:
+        cached = self._ansi
+        if cached is None or cached[0] != color_system:
             sgr: list[str] = []
             append = sgr.append
             _style_map = self._style_map
@@ -381,8 +382,10 @@ class Style:
                         foreground=False
                     )
                 )
-            self._ansi = ";".join(sgr)
-        return self._ansi
+            ansi = ";".join(sgr)
+            self._ansi = (color_system, ansi)
+            return ansi
+        return cached[1]
 
     @classmethod
     @lru_cache(maxsize=1024)
@@ -709,7 +712,7 @@ class Style:
         """
         if not text or color_system is None:
             return text
-        attrs = self._ansi or self._make_ansi_codes(color_system)
+        attrs = self._make_ansi_codes(color_system)
         rendered = f"\x1b[{attrs}m{text}\x1b[0m" if attrs else text
         if self._link and not legacy_windows:
             rendered = (

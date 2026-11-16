@@ -1,6 +1,9 @@
+import io
+
 import pytest
 
 from rich import errors
+from rich.console import Console
 from rich.color import Color, ColorSystem, ColorType
 from rich.style import Style, StyleStack
 
@@ -265,3 +268,55 @@ def test_clear_meta_and_links_clears_hash():
 
     clear_style = style.clear_meta_and_links()
     assert clear_style._hash is None
+
+
+def test_ansi_codes_follow_requested_color_system() -> None:
+    style = Style(color="#ff8800", bgcolor="#000044", bold=True)
+    for color_system in (
+        ColorSystem.TRUECOLOR,
+        ColorSystem.STANDARD,
+        ColorSystem.EIGHT_BIT,
+        ColorSystem.TRUECOLOR,
+    ):
+        fresh = Style(color="#ff8800", bgcolor="#000044", bold=True)
+        assert style._make_ansi_codes(color_system) == fresh._make_ansi_codes(
+            color_system
+        )
+
+
+def test_render_after_switching_color_system() -> None:
+    style = Style(color="#ff8800")
+    expected = {
+        ColorSystem.TRUECOLOR: "\x1b[38;2;255;136;0mhello\x1b[0m",
+        ColorSystem.STANDARD: "\x1b[91mhello\x1b[0m",
+        ColorSystem.EIGHT_BIT: "\x1b[38;5;208mhello\x1b[0m",
+    }
+    for color_system in (
+        ColorSystem.TRUECOLOR,
+        ColorSystem.STANDARD,
+        ColorSystem.EIGHT_BIT,
+        ColorSystem.TRUECOLOR,
+    ):
+        assert (
+            style.render("hello", color_system=color_system) == expected[color_system]
+        )
+
+
+@pytest.mark.parametrize(
+    "color_systems",
+    [
+        ("truecolor", "standard", "256", "truecolor"),
+        ("standard", "256", "truecolor", "standard"),
+    ],
+)
+def test_shared_markup_style_between_consoles(color_systems: tuple[str, ...]) -> None:
+    expected = {
+        "truecolor": "\x1b[38;2;255;136;0morange\x1b[0m",
+        "standard": "\x1b[91morange\x1b[0m",
+        "256": "\x1b[38;5;208morange\x1b[0m",
+    }
+    for color_system in color_systems:
+        output = io.StringIO()
+        console = Console(file=output, color_system=color_system, force_terminal=True)
+        console.print("[#ff8800]orange[/]", end="")
+        assert output.getvalue() == expected[color_system]
